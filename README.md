@@ -37,3 +37,29 @@ Routing uses sentence-transformers + cosine similarity (very lightweight)
 ```bash
 git clone https://github.com/yourusername/nova-chat.git
 cd nova-chat
+```
+
+2. Install dependencies
+```bash
+pip install -r requirements.txt
+```
+
+3. Create .env file and add your key
+```bash
+GROQ_API_KEY=gq_xxxxxxxxxxxxxxxxxxxxxxxxxxxxxx
+```
+
+4. Run the app
+```bash
+python main.py
+```
+
+5. Open in browser → http://127.0.0.1:5000
+
+
+## Project Status (Jan 2026)
+
+- Basic routing + chat working
+- Nice dark UI with hover controls
+- Missing: real user authentication, chat history persistence, rate limiting
+
