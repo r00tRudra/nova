@@ -104,10 +104,10 @@ def handle_message(data):
 
     # Routing decision
     model_key = route_prompt(user_message)
-    emit('chat_message', {
-        'role': 'system',
-        'content': f"[routed to {model_key}]"           # removed bold
-    })
+    # emit('chat_message', {
+    #     'role': 'system',
+    #     'content': f"[routed to {model_key}]"           # removed bold
+    # })
 
     # Get answer (streaming would be better, but simple version for now)
     try:
