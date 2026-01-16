@@ -1,0 +1,10 @@
+Flask
+flask-socketio
+Werkzeug
+Jinja2
+python-dotenv
+sentence-transformers
+scikit-learn
+groq
+numpy
+torch
