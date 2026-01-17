@@ -8,3 +8,8 @@ scikit-learn
 groq
 numpy
 torch
+flask-sqlalchemy
+flask-migrate
+sqlalchemy[asyncio]
+asyncpg
+psycopg[binary,pool]

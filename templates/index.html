@@ -1,11 +1,7 @@
 <!DOCTYPE html>
 <html lang="en">
 <head>
-    <link
-  rel="stylesheet"
-  href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.5.1/css/all.min.css"
-/>
-
+    <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.5.1/css/all.min.css"/>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
     <title>Nova Chat UI - Dark Mode</title>
@@ -26,6 +22,7 @@
             --error: #f87171;
             --accent: #a78bfa;
             --max-lines: 6;
+            --sidebar-width: 260px;
         }
 
         /* ==== 2. Layout & Animations ==== */
@@ -35,17 +32,105 @@
             font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif;
             margin: 0;
             display: flex;
-            justify-content: center;
             height: 100vh;
+            overflow: hidden;
+        }
+
+        /* Sidebar */
+        .sidebar {
+            width: var(--sidebar-width);
+            background: var(--bg-secondary);
+            border-right: 1px solid var(--border);
+            display: flex;
+            flex-direction: column;
+            padding: 1rem;
+            gap: 1rem;
+        }
+
+        .sidebar-header {
+            display: flex;
+            align-items: center;
+            justify-content: space-between;
+            padding-bottom: 1rem;
+            border-bottom: 1px solid var(--border);
+        }
+
+        .new-chat-btn {
+            background: var(--btn-primary-bg);
+            color: var(--btn-primary-fg);
+            border: none;
+            padding: 0.6rem 1rem;
+            border-radius: 8px;
+            cursor: pointer;
+            font-size: 0.9rem;
+            display: flex;
+            align-items: center;
+            gap: 0.5rem;
+            width: 100%;
+            transition: opacity 0.2s;
+        }
+
+        .new-chat-btn:hover {
+            opacity: 0.9;
+        }
+
+        .chat-history-list {
+            flex: 1;
+            overflow-y: auto;
+            display: flex;
+            flex-direction: column;
+            gap: 0.5rem;
+        }
+
+        .chat-history-list::-webkit-scrollbar {
+            width: 6px;
+        }
+
+        .chat-history-list::-webkit-scrollbar-track {
+            background: var(--bg-primary);
+            border-radius: 3px;
+        }
+
+        .chat-history-list::-webkit-scrollbar-thumb {
+            background: var(--border);
+            border-radius: 3px;
+        }
+
+        .chat-history-list::-webkit-scrollbar-thumb:hover {
+            background: var(--btn-secondary-hover);
+        }
+
+        .chat-history-item {
+            padding: 0.7rem;
+            background: var(--bg-primary);
+            border-radius: 8px;
+            cursor: pointer;
+            font-size: 0.85rem;
+            color: var(--text-secondary);
+            transition: background 0.2s;
+            white-space: nowrap;
+            overflow: hidden;
+            text-overflow: ellipsis;
+        }
+
+        .chat-history-item:hover {
+            background: var(--btn-secondary-hover);
+            color: var(--text-primary);
+        }
+
+        .chat-history-item.active {
+            background: var(--btn-secondary-hover);
+            color: var(--text-primary);
+            border-left: 3px solid var(--btn-primary-bg);
         }
 
         .chat-wrapper {
-            width: 100%;
-            max-width: 800px;
+            flex: 1;
             display: flex;
             flex-direction: column;
             padding: 2rem;
             position: relative;
+            overflow: hidden;
         }
 
         #nova-tagline {
@@ -53,7 +138,7 @@
             top: 40%;
             left: 50%;
             transform: translate(-50%, -50%);
-            font-size: 1.4rem;
+            font-size: 1.8rem;
             font-weight: 300;
             color: var(--text-secondary);
             white-space: nowrap;
@@ -62,12 +147,12 @@
         }
 
         #nova-tagline.minimized {
-            top: 1rem;
-            left: 1rem;
+            top: 1.5rem;
+            left: 1.5rem;
             transform: translate(0, 0);
-            font-size: 0.85rem;
+            font-size: 1.1rem;
             font-weight: 600;
-            opacity: 0.8;
+            opacity: 0.9;
         }
 
         #chat-history {
@@ -78,6 +163,24 @@
             flex-direction: column;
             gap: 1rem;
             padding-bottom: 2rem;
+            padding-right: 1rem;
+        }
+
+        #chat-history::-webkit-scrollbar {
+            width: 8px;
+        }
+
+        #chat-history::-webkit-scrollbar-track {
+            background: transparent;
+        }
+
+        #chat-history::-webkit-scrollbar-thumb {
+            background: var(--border);
+            border-radius: 4px;
+        }
+
+        #chat-history::-webkit-scrollbar-thumb:hover {
+            background: var(--btn-secondary-hover);
         }
 
         /* ==== 3. Message Components ==== */
@@ -152,10 +255,13 @@
             border-radius: 12px;
             padding: 0.5rem;
             box-shadow: 0 4px 12px rgba(0,0,0,0.3);
+            display: flex;
+            align-items: flex-end;
+            gap: 0.5rem;
         }
 
         #prompt-input {
-            width: 100%;
+            flex: 1;
             border: none;
             outline: none;
             padding: 0.5rem;
@@ -167,18 +273,55 @@
             color: var(--text-primary);
         }
 
+        .send-btn {
+            background: var(--btn-primary-bg);
+            border: none;
+            width: 40px;
+            height: 40px;
+            border-radius: 8px;
+            cursor: pointer;
+            color: var(--btn-primary-fg);
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            transition: opacity 0.2s;
+            flex-shrink: 0;
+        }
 
+        .send-btn:hover {
+            opacity: 0.9;
+        }
+
+        .send-btn:disabled {
+            opacity: 0.5;
+            cursor: not-allowed;
+        }
     </style>
 </head>
 <body>
 
+<div class="sidebar">
+    <div class="sidebar-header">
+        <button class="new-chat-btn">
+            <i class="fa-solid fa-plus"></i>
+            New Chat
+        </button>
+    </div>
+    <div class="chat-history-list" id="sidebar-history">
+        <!-- Chat history items will be added here -->
+    </div>
+</div>
+
 <div class="chat-wrapper">
-    <div id="nova-tagline">Ask anything • Powered by multiple minds</div>
+    <div id="nova-tagline">Nova • Ask anything</div>
     
     <div id="chat-history"></div>
 
     <div class="input-container">
         <textarea id="prompt-input" rows="1" placeholder="Type your message... (Shift+Enter for new line)"></textarea>
+        <button class="send-btn" id="send-btn">
+            <i class="fa-solid fa-paper-plane"></i>
+        </button>
     </div>
 </div>
 
@@ -186,7 +329,12 @@
     const textarea = document.getElementById('prompt-input');
     const chatHistory = document.getElementById('chat-history');
     const tagline = document.getElementById('nova-tagline');
+    const sendBtn = document.getElementById('send-btn');
+    const newChatBtn = document.querySelector('.new-chat-btn');
+    const sidebarHistory = document.getElementById('sidebar-history');
     let generationAbort = null;
+    let chatSessions = [];
+    let currentChatId = null;
 
     // 1. Auto-resize textarea
     textarea.addEventListener('input', () => {
@@ -203,9 +351,42 @@
         }
     });
 
+    sendBtn.addEventListener('click', () => {
+        const val = textarea.value.trim();
+        if (val) handleSubmission(val);
+    });
+
+    // 3. New Chat Button
+    newChatBtn.addEventListener('click', () => {
+        startNewChat();
+    });
+
+    function startNewChat() {
+        chatHistory.innerHTML = '';
+        currentChatId = null;
+        tagline.textContent = 'Nova • Ask anything';
+        tagline.classList.remove('minimized');
+    }
+
     async function handleSubmission(prompt) {
-        // Minimize tagline on first prompt
-        tagline.classList.add('minimized');
+        // Create new chat session if needed
+        if (!currentChatId) {
+            currentChatId = Date.now();
+            chatSessions.push({
+                id: currentChatId,
+                title: prompt.substring(0, 30) + (prompt.length > 30 ? '...' : ''),
+                messages: []
+            });
+            updateSidebarHistory();
+        }
+
+        // Minimize tagline and change text
+        if (!tagline.classList.contains('minimized')) {
+            tagline.classList.add('minimized');
+            setTimeout(() => {
+                tagline.textContent = 'Nova';
+            }, 350);
+        }
         
         // Add User Message
         appendMessage(prompt, 'user');
@@ -226,6 +407,27 @@
             botMsgDiv.firstChild.textContent = err.name === 'AbortError' ? '[Interrupted]' : '[Error]';
             botMsgDiv.style.color = 'var(--error)';
         }
+    }
+
+    function updateSidebarHistory() {
+        sidebarHistory.innerHTML = '';
+        chatSessions.forEach(session => {
+            const item = document.createElement('div');
+            item.className = 'chat-history-item';
+            if (session.id === currentChatId) {
+                item.classList.add('active');
+            }
+            item.textContent = session.title;
+            item.onclick = () => loadChatSession(session.id);
+            sidebarHistory.appendChild(item);
+        });
+    }
+
+    function loadChatSession(chatId) {
+        // This would load the saved chat session
+        // For now, just highlight it
+        currentChatId = chatId;
+        updateSidebarHistory();
     }
 
     function appendMessage(text, role) {
