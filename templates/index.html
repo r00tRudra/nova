@@ -4,32 +4,38 @@
     <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.5.1/css/all.min.css"/>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>Nova Chat UI - Dark Mode</title>
+    <title>nova Chat - Multi-LLM Assistant</title>
+    <script src="https://cdn.socket.io/4.5.4/socket.io.min.js"></script>
     <style>
-        /* ==== 1. Dark Theme Tokens ==== */
         :root {
-            --bg-primary: #0a0a0c;          /* Deep dark background */
-            --bg-secondary: #121212;        /* Cards, bubbles */
-            --bg-input: #0f0f11;            /* Input area */
-            --text-primary: #f1f1f3;        /* Main text */
-            --text-secondary: #b0b0b8;      /* Secondary text */
-            --text-muted: #6e6e78;          /* Muted text */
-            --btn-primary-bg: #7c3aed;      /* Accent purple */
+            --bg-primary: #0a0a0c;
+            --bg-secondary: #121212;
+            --bg-tertiary: #1a1a1f;
+            --bg-input: #0f0f11;
+            --text-primary: #f1f1f3;
+            --text-secondary: #b0b0b8;
+            --text-muted: #6e6e78;
+            --btn-primary-bg: #7c3aed;
+            --btn-primary-hover: #6d28d9;
             --btn-primary-fg: #ffffff;
             --btn-secondary-bg: #1e1e24;
             --btn-secondary-hover: #2a2a32;
             --border: #1e1e24;
+            --border-light: #2a2a32;
             --error: #f87171;
+            --success: #34d399;
             --accent: #a78bfa;
-            --max-lines: 6;
-            --sidebar-width: 260px;
+            --sidebar-width: 280px;
         }
 
-        /* ==== 2. Layout & Animations ==== */
+        * {
+            box-sizing: border-box;
+        }
+
         body {
             background: var(--bg-primary);
             color: var(--text-primary);
-            font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif;
+            font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, 'Helvetica Neue', Arial, sans-serif;
             margin: 0;
             display: flex;
             height: 100vh;
@@ -43,7 +49,7 @@
             border-right: 1px solid var(--border);
             display: flex;
             flex-direction: column;
-            padding: 1rem;
+            padding: 1.25rem;
             gap: 1rem;
         }
 
@@ -55,23 +61,36 @@
             border-bottom: 1px solid var(--border);
         }
 
+        .logo {
+            font-size: 1.5rem;
+            font-weight: 700;
+            background: linear-gradient(135deg, var(--btn-primary-bg), var(--accent));
+            -webkit-background-clip: text;
+            -webkit-text-fill-color: transparent;
+            background-clip: text;
+        }
+
         .new-chat-btn {
-            background: var(--btn-primary-bg);
+            background: linear-gradient(135deg, var(--btn-primary-bg), var(--btn-primary-hover));
             color: var(--btn-primary-fg);
             border: none;
-            padding: 0.6rem 1rem;
-            border-radius: 8px;
+            padding: 0.75rem 1.25rem;
+            border-radius: 10px;
             cursor: pointer;
-            font-size: 0.9rem;
+            font-size: 0.95rem;
+            font-weight: 600;
             display: flex;
             align-items: center;
-            gap: 0.5rem;
+            justify-content: center;
+            gap: 0.6rem;
             width: 100%;
-            transition: opacity 0.2s;
+            transition: transform 0.2s, box-shadow 0.2s;
+            box-shadow: 0 4px 12px rgba(124, 58, 237, 0.3);
         }
 
         .new-chat-btn:hover {
-            opacity: 0.9;
+            transform: translateY(-2px);
+            box-shadow: 0 6px 16px rgba(124, 58, 237, 0.4);
         }
 
         .chat-history-list {
@@ -80,15 +99,11 @@
             display: flex;
             flex-direction: column;
             gap: 0.5rem;
+            padding-right: 0.5rem;
         }
 
         .chat-history-list::-webkit-scrollbar {
             width: 6px;
-        }
-
-        .chat-history-list::-webkit-scrollbar-track {
-            background: var(--bg-primary);
-            border-radius: 3px;
         }
 
         .chat-history-list::-webkit-scrollbar-thumb {
@@ -96,18 +111,14 @@
             border-radius: 3px;
         }
 
-        .chat-history-list::-webkit-scrollbar-thumb:hover {
-            background: var(--btn-secondary-hover);
-        }
-
         .chat-history-item {
-            padding: 0.7rem;
-            background: var(--bg-primary);
-            border-radius: 8px;
+            padding: 0.85rem;
+            background: var(--bg-tertiary);
+            border-radius: 10px;
             cursor: pointer;
-            font-size: 0.85rem;
+            font-size: 0.9rem;
             color: var(--text-secondary);
-            transition: background 0.2s;
+            transition: all 0.2s;
             white-space: nowrap;
             overflow: hidden;
             text-overflow: ellipsis;
@@ -116,6 +127,7 @@
         .chat-history-item:hover {
             background: var(--btn-secondary-hover);
             color: var(--text-primary);
+            transform: translateX(4px);
         }
 
         .chat-history-item.active {
@@ -124,13 +136,15 @@
             border-left: 3px solid var(--btn-primary-bg);
         }
 
+        /* Main Chat Area */
         .chat-wrapper {
             flex: 1;
             display: flex;
             flex-direction: column;
-            padding: 2rem;
+            padding: 2.5rem;
             position: relative;
             overflow: hidden;
+            background: linear-gradient(180deg, var(--bg-primary) 0%, #0d0d0f 100%);
         }
 
         #nova-tagline {
@@ -138,30 +152,34 @@
             top: 40%;
             left: 50%;
             transform: translate(-50%, -50%);
-            font-size: 1.8rem;
+            font-size: 2.2rem;
             font-weight: 300;
-            color: var(--text-secondary);
+            background: linear-gradient(135deg, #f1f1f3, var(--accent));
+            -webkit-background-clip: text;
+            -webkit-text-fill-color: transparent;
+            background-clip: text;
             white-space: nowrap;
             transition: all 0.7s cubic-bezier(0.19, 1, 0.22, 1);
             pointer-events: none;
+            letter-spacing: -0.5px;
         }
 
         #nova-tagline.minimized {
-            top: 1.5rem;
-            left: 1.5rem;
+            top: 2rem;
+            left: 2rem;
             transform: translate(0, 0);
-            font-size: 1.1rem;
-            font-weight: 600;
+            font-size: 1.3rem;
+            font-weight: 700;
             opacity: 0.9;
         }
 
         #chat-history {
             flex: 1;
             overflow-y: auto;
-            margin-top: 3rem;
+            margin-top: 4rem;
             display: flex;
             flex-direction: column;
-            gap: 1rem;
+            gap: 1.5rem;
             padding-bottom: 2rem;
             padding-right: 1rem;
         }
@@ -170,61 +188,182 @@
             width: 8px;
         }
 
-        #chat-history::-webkit-scrollbar-track {
-            background: transparent;
-        }
-
         #chat-history::-webkit-scrollbar-thumb {
             background: var(--border);
             border-radius: 4px;
         }
 
-        #chat-history::-webkit-scrollbar-thumb:hover {
-            background: var(--btn-secondary-hover);
-        }
-
-        /* ==== 3. Message Components ==== */
+        /* Messages */
         .message-output {
             position: relative;
-            padding: 1rem;
+            padding: 1.25rem;
             background: var(--bg-secondary);
             border: 1px solid var(--border);
-            border-radius: 12px;
-            max-width: 90%;
-            animation: fadeIn 0.3s ease;
-            margin-bottom: 2rem;
+            border-radius: 16px;
+            max-width: 85%;
+            animation: fadeIn 0.4s cubic-bezier(0.19, 1, 0.22, 1);
+            margin-bottom: 2.5rem;
+            box-shadow: 0 2px 8px rgba(0, 0, 0, 0.2);
         }
 
         .message-output.user {
             align-self: flex-end;
-            border-color: var(--btn-primary-bg);
-            background: var(--btn-primary-bg);
+            background: linear-gradient(135deg, var(--btn-primary-bg), var(--btn-primary-hover));
+            border: none;
             color: var(--btn-primary-fg);
+            box-shadow: 0 4px 12px rgba(124, 58, 237, 0.3);
         }
 
         .message-output.bot {
             align-self: flex-start;
+            background: var(--bg-tertiary);
+        }
+
+        .message-output.editing {
+            background: var(--bg-input);
+            border: 2px solid var(--btn-primary-bg);
         }
 
         @keyframes fadeIn {
-            from { opacity: 0; transform: translateY(10px); }
+            from { opacity: 0; transform: translateY(20px); }
             to { opacity: 1; transform: translateY(0); }
         }
 
-        /* Message Action Buttons */
-        .message-actions {
+        /* User Message Actions */
+        .user-message-actions {
             position: absolute;
-            bottom: -2.5rem;
-            left: 0;
+            bottom: -2.75rem;
+            right: 0;
             display: flex;
-            gap: 0.3rem;
+            gap: 0.4rem;
             opacity: 0;
             transition: opacity 0.2s ease;
-            background: var(--bg-secondary);
-            padding: 4px;
-            border-radius: 8px;
+            background: var(--bg-tertiary);
+            padding: 0.5rem;
+            border-radius: 10px;
             border: 1px solid var(--border);
             align-items: center;
+            box-shadow: 0 4px 12px rgba(0, 0, 0, 0.3);
+        }
+
+        .message-output.user:hover .user-message-actions {
+            opacity: 1;
+        }
+
+        .user-message-actions button {
+            background: transparent;
+            border: none;
+            padding: 0.5rem 0.75rem;
+            border-radius: 6px;
+            cursor: pointer;
+            color: var(--text-secondary);
+            transition: all 0.2s;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            font-size: 0.9rem;
+        }
+
+        .user-message-actions button:hover {
+            background: var(--btn-secondary-hover);
+            color: var(--text-primary);
+            transform: translateY(-2px);
+        }
+
+        /* Edit Mode */
+        .edit-textarea {
+            width: 100%;
+            background: transparent;
+            border: none;
+            outline: none;
+            color: var(--text-primary);
+            font-size: 1rem;
+            font-family: inherit;
+            resize: none;
+            line-height: 1.6;
+        }
+
+        .edit-actions {
+            display: flex;
+            gap: 0.5rem;
+            margin-top: 0.75rem;
+            justify-content: flex-end;
+        }
+
+        .edit-actions button {
+            padding: 0.5rem 1rem;
+            border-radius: 8px;
+            border: none;
+            cursor: pointer;
+            font-size: 0.9rem;
+            font-weight: 600;
+            transition: all 0.2s;
+        }
+
+        .btn-save {
+            background: var(--btn-primary-bg);
+            color: white;
+        }
+
+        .btn-save:hover {
+            background: var(--btn-primary-hover);
+        }
+
+        .btn-cancel {
+            background: var(--btn-secondary-bg);
+            color: var(--text-secondary);
+        }
+
+        .btn-cancel:hover {
+            background: var(--btn-secondary-hover);
+        }
+
+        /* Response Versions */
+        .response-versions {
+            display: flex;
+            gap: 0.5rem;
+            margin-top: 1rem;
+            padding-top: 1rem;
+            border-top: 1px solid var(--border);
+        }
+
+        .version-btn {
+            padding: 0.5rem 1rem;
+            background: var(--btn-secondary-bg);
+            border: 1px solid var(--border);
+            border-radius: 8px;
+            cursor: pointer;
+            color: var(--text-secondary);
+            font-size: 0.85rem;
+            transition: all 0.2s;
+        }
+
+        .version-btn:hover {
+            background: var(--btn-secondary-hover);
+            color: var(--text-primary);
+        }
+
+        .version-btn.active {
+            background: var(--btn-primary-bg);
+            color: white;
+            border-color: var(--btn-primary-bg);
+        }
+
+        /* Bot Message Actions */
+        .message-actions {
+            position: absolute;
+            bottom: -2.75rem;
+            left: 0;
+            display: flex;
+            gap: 0.4rem;
+            opacity: 0;
+            transition: opacity 0.2s ease;
+            background: var(--bg-tertiary);
+            padding: 0.5rem;
+            border-radius: 10px;
+            border: 1px solid var(--border);
+            align-items: center;
+            box-shadow: 0 4px 12px rgba(0, 0, 0, 0.3);
         }
 
         .message-output.bot:hover .message-actions {
@@ -232,32 +371,38 @@
         }
 
         .message-actions button {
-            background: var(--btn-secondary-bg);
+            background: transparent;
             border: none;
-            padding: 4px 8px;
-            border-radius: 4px;
+            padding: 0.5rem 0.75rem;
+            border-radius: 6px;
             cursor: pointer;
             font-size: 0.9rem;
             color: var(--text-secondary);
-            transition: background 0.2s, color 0.2s;
+            transition: all 0.2s;
         }
 
         .message-actions button:hover {
             background: var(--btn-secondary-hover);
             color: var(--text-primary);
+            transform: translateY(-2px);
         }
 
-        /* ==== 4. Input Bar & Toolbar ==== */
+        /* Input Area */
         .input-container {
             position: relative;
-            background: var(--bg-input);
-            border: 1px solid var(--border);
-            border-radius: 12px;
-            padding: 0.5rem;
-            box-shadow: 0 4px 12px rgba(0,0,0,0.3);
+            background: var(--bg-tertiary);
+            border: 2px solid var(--border);
+            border-radius: 16px;
+            padding: 0.75rem;
+            box-shadow: 0 8px 24px rgba(0, 0, 0, 0.4);
             display: flex;
             align-items: flex-end;
-            gap: 0.5rem;
+            gap: 0.75rem;
+            transition: border-color 0.2s;
+        }
+
+        .input-container:focus-within {
+            border-color: var(--btn-primary-bg);
         }
 
         #prompt-input {
@@ -267,96 +412,225 @@
             padding: 0.5rem;
             font-size: 1rem;
             resize: none;
-            line-height: 1.5rem;
-            max-height: calc(var(--max-lines) * 1.5rem);
+            line-height: 1.6;
+            min-height: 1.6rem;
+            max-height: 400px;
             background: transparent;
             color: var(--text-primary);
+            font-family: inherit;
+            overflow-y: auto;
+        }
+
+        #prompt-input::-webkit-scrollbar {
+            width: 6px;
+        }
+
+        #prompt-input::-webkit-scrollbar-thumb {
+            background: var(--border);
+            border-radius: 3px;
         }
 
         .send-btn {
-            background: var(--btn-primary-bg);
+            background: linear-gradient(135deg, var(--btn-primary-bg), var(--btn-primary-hover));
             border: none;
-            width: 40px;
-            height: 40px;
-            border-radius: 8px;
+            width: 44px;
+            height: 44px;
+            border-radius: 10px;
             cursor: pointer;
             color: var(--btn-primary-fg);
             display: flex;
             align-items: center;
             justify-content: center;
-            transition: opacity 0.2s;
+            transition: all 0.2s;
             flex-shrink: 0;
+            box-shadow: 0 4px 12px rgba(124, 58, 237, 0.3);
         }
 
-        .send-btn:hover {
-            opacity: 0.9;
+        .send-btn:hover:not(:disabled) {
+            transform: translateY(-2px);
+            box-shadow: 0 6px 16px rgba(124, 58, 237, 0.4);
         }
 
         .send-btn:disabled {
-            opacity: 0.5;
+            opacity: 0.4;
             cursor: not-allowed;
+            pointer-events: none;
+        }
+
+        /* Typing Indicator */
+        .typing-indicator {
+            display: inline-flex;
+            gap: 4px;
+            padding: 0.5rem 0;
+        }
+
+        .typing-dot {
+            width: 8px;
+            height: 8px;
+            border-radius: 50%;
+            background: var(--text-muted);
+            animation: typing 1.4s infinite;
+        }
+
+        .typing-dot:nth-child(2) {
+            animation-delay: 0.2s;
+        }
+
+        .typing-dot:nth-child(3) {
+            animation-delay: 0.4s;
+        }
+
+        @keyframes typing {
+            0%, 60%, 100% {
+                opacity: 0.3;
+                transform: scale(0.8);
+            }
+            30% {
+                opacity: 1;
+                transform: scale(1);
+            }
+        }
+
+        /* Connection Status */
+        .connection-status {
+            position: fixed;
+            top: 1rem;
+            right: 1rem;
+            padding: 0.5rem 1rem;
+            border-radius: 8px;
+            font-size: 0.85rem;
+            display: flex;
+            align-items: center;
+            gap: 0.5rem;
+            z-index: 1000;
+        }
+
+        .connection-status.connected {
+            background: var(--success);
+            color: white;
+        }
+
+        .connection-status.disconnected {
+            background: var(--error);
+            color: white;
         }
     </style>
 </head>
 <body>
 
+<div class="connection-status disconnected" id="connection-status">
+    <i class="fa-solid fa-circle"></i>
+    <span>Connecting...</span>
+</div>
+
 <div class="sidebar">
     <div class="sidebar-header">
-        <button class="new-chat-btn">
-            <i class="fa-solid fa-plus"></i>
-            New Chat
-        </button>
+        <div class="logo">nova</div>
     </div>
+    <button class="new-chat-btn" id="new-chat-btn">
+        <i class="fa-solid fa-plus"></i>
+        New Chat
+    </button>
     <div class="chat-history-list" id="sidebar-history">
         <!-- Chat history items will be added here -->
     </div>
 </div>
 
 <div class="chat-wrapper">
-    <div id="nova-tagline">Nova • Ask anything</div>
+    <div id="nova-tagline">nova • Ask anything</div>
     
     <div id="chat-history"></div>
 
     <div class="input-container">
         <textarea id="prompt-input" rows="1" placeholder="Type your message... (Shift+Enter for new line)"></textarea>
-        <button class="send-btn" id="send-btn">
+        <button class="send-btn" id="send-btn" disabled>
             <i class="fa-solid fa-paper-plane"></i>
         </button>
     </div>
 </div>
 
 <script>
+    // SocketIO Connection
+    const socket = io();
+    
     const textarea = document.getElementById('prompt-input');
     const chatHistory = document.getElementById('chat-history');
     const tagline = document.getElementById('nova-tagline');
     const sendBtn = document.getElementById('send-btn');
-    const newChatBtn = document.querySelector('.new-chat-btn');
+    const newChatBtn = document.getElementById('new-chat-btn');
     const sidebarHistory = document.getElementById('sidebar-history');
-    let generationAbort = null;
+    const connectionStatus = document.getElementById('connection-status');
+    
     let chatSessions = [];
     let currentChatId = null;
+    let messageResponses = new Map();
+    let currentMessageId = null;
 
-    // 1. Auto-resize textarea
-    textarea.addEventListener('input', () => {
-        textarea.style.height = 'auto';
-        textarea.style.height = textarea.scrollHeight + 'px';
+    // Connection Status
+    socket.on('connect', () => {
+        console.log('Connected to server');
+        connectionStatus.className = 'connection-status connected';
+        connectionStatus.innerHTML = '<i class="fa-solid fa-circle"></i><span>Connected</span>';
     });
 
-    // 2. Submit Logic
+    socket.on('disconnect', () => {
+        console.log('Disconnected from server');
+        connectionStatus.className = 'connection-status disconnected';
+        connectionStatus.innerHTML = '<i class="fa-solid fa-circle"></i><span>Disconnected</span>';
+    });
+
+    // Receive Messages
+    socket.on('chat_message', (data) => {
+        if (data.role === 'system') {
+            // System messages can be shown or ignored
+            console.log('System:', data.content);
+        } else if (data.role === 'user') {
+            // User message already added locally, skip
+        } else if (data.role === 'assistant') {
+            handleBotResponse(data);
+        }
+    });
+
+    // Typing Indicator
+    socket.on('typing', (data) => {
+        if (data.status) {
+            // Typing indicator already shown in handleSubmission
+        } else {
+            // Remove typing indicator (handled in handleBotResponse)
+        }
+    });
+
+    // Auto-resize textarea
+    textarea.addEventListener('input', () => {
+        textarea.style.height = 'auto';
+        const newHeight = Math.min(textarea.scrollHeight, 400);
+        textarea.style.height = newHeight + 'px';
+        
+        const hasContent = textarea.value.trim().length > 0;
+        sendBtn.disabled = !hasContent;
+    });
+
+    // Submit on Enter
     textarea.addEventListener('keydown', (e) => {
         if (e.key === 'Enter' && !e.shiftKey) {
             e.preventDefault();
             const val = textarea.value.trim();
-            if (val) handleSubmission(val);
+            if (val) {
+                handleSubmission(val);
+            }
         }
     });
 
-    sendBtn.addEventListener('click', () => {
+    // Send button
+    sendBtn.addEventListener('click', (e) => {
+        e.preventDefault();
         const val = textarea.value.trim();
-        if (val) handleSubmission(val);
+        if (val) {
+            handleSubmission(val);
+        }
     });
 
-    // 3. New Chat Button
+    // New Chat
     newChatBtn.addEventListener('click', () => {
         startNewChat();
     });
@@ -364,12 +638,13 @@
     function startNewChat() {
         chatHistory.innerHTML = '';
         currentChatId = null;
-        tagline.textContent = 'Nova • Ask anything';
+        messageResponses.clear();
+        tagline.textContent = 'nova • Ask anything';
         tagline.classList.remove('minimized');
+        updateSidebarHistory();
     }
 
-    async function handleSubmission(prompt) {
-        // Create new chat session if needed
+    function handleSubmission(prompt, isEdit = false, originalMessageId = null) {
         if (!currentChatId) {
             currentChatId = Date.now();
             chatSessions.push({
@@ -380,38 +655,124 @@
             updateSidebarHistory();
         }
 
-        // Minimize tagline and change text
         if (!tagline.classList.contains('minimized')) {
             tagline.classList.add('minimized');
             setTimeout(() => {
-                tagline.textContent = 'Nova';
+                tagline.textContent = 'nova';
             }, 350);
         }
         
-        // Add User Message
-        appendMessage(prompt, 'user');
+        let userMsgDiv;
+        let messageId = originalMessageId || Date.now();
+        currentMessageId = messageId;
+        
+        if (isEdit) {
+            userMsgDiv = document.querySelector(`[data-message-id="${messageId}"]`);
+            if (userMsgDiv) {
+                userMsgDiv.querySelector('.message-text').textContent = prompt;
+            }
+        } else {
+            userMsgDiv = appendMessage(prompt, 'user', messageId);
+        }
+        
         textarea.value = '';
         textarea.style.height = 'auto';
+        sendBtn.disabled = true;
 
-        // Interrupt existing generation
-        if (generationAbort) generationAbort.abort();
-        generationAbort = new AbortController();
+        // Show typing indicator
+        const botMsgDiv = appendMessage('', 'bot', `bot-${messageId}`);
+        showTypingIndicator(botMsgDiv);
 
-        const startTime = performance.now();
-        const botMsgDiv = appendMessage('...', 'bot');
+        // Send to server
+        socket.emit('message', { message: prompt });
+    }
 
-        try {
-            const response = await fakeLLMCall(prompt, generationAbort.signal);
-            botMsgDiv.firstChild.textContent = response;
-        } catch (err) {
-            botMsgDiv.firstChild.textContent = err.name === 'AbortError' ? '[Interrupted]' : '[Error]';
-            botMsgDiv.style.color = 'var(--error)';
+    function handleBotResponse(data) {
+        const botMsgId = `bot-${currentMessageId}`;
+        let botMsgDiv = document.querySelector(`[data-message-id="${botMsgId}"]`);
+        
+        if (botMsgDiv) {
+            hideTypingIndicator(botMsgDiv);
+            botMsgDiv.querySelector('.message-text').textContent = data.content;
+            
+            // Store response version
+            if (!messageResponses.has(currentMessageId)) {
+                messageResponses.set(currentMessageId, []);
+            }
+            messageResponses.get(currentMessageId).push(data.content);
+            
+            // Add version selector if multiple responses exist
+            if (messageResponses.get(currentMessageId).length > 1) {
+                addVersionSelector(botMsgDiv, currentMessageId);
+            }
+            
+            // Add model badge if provided
+            // if (data.model) {
+            //     addModelBadge(botMsgDiv, data.model);
+            // }
         }
+    }
+
+    function showTypingIndicator(messageDiv) {
+        const textEl = messageDiv.querySelector('.message-text');
+        textEl.innerHTML = '<div class="typing-indicator"><div class="typing-dot"></div><div class="typing-dot"></div><div class="typing-dot"></div></div>';
+    }
+
+    function hideTypingIndicator(messageDiv) {
+        const textEl = messageDiv.querySelector('.message-text');
+        textEl.innerHTML = '';
+    }
+
+    function addModelBadge(botMsgDiv, modelKey) {
+        const badge = document.createElement('div');
+        badge.style.cssText = `
+            position: absolute;
+            top: 0.5rem;
+            right: 0.5rem;
+            background: rgba(124, 58, 237, 0.2);
+            color: var(--accent);
+            padding: 0.25rem 0.5rem;
+            border-radius: 6px;
+            font-size: 0.75rem;
+            font-weight: 600;
+        `;
+        badge.textContent = modelKey.toUpperCase();
+        botMsgDiv.appendChild(badge);
+    }
+
+    function addVersionSelector(botMsgDiv, messageId) {
+        const versions = messageResponses.get(messageId);
+        let versionsContainer = botMsgDiv.querySelector('.response-versions');
+        
+        if (!versionsContainer) {
+            versionsContainer = document.createElement('div');
+            versionsContainer.className = 'response-versions';
+            botMsgDiv.appendChild(versionsContainer);
+        }
+        
+        versionsContainer.innerHTML = '';
+        versions.forEach((response, index) => {
+            const btn = document.createElement('button');
+            btn.className = `version-btn ${index === versions.length - 1 ? 'active' : ''}`;
+            btn.textContent = `Version ${index + 1}`;
+            btn.onclick = () => switchVersion(botMsgDiv, messageId, index);
+            versionsContainer.appendChild(btn);
+        });
+    }
+
+    function switchVersion(botMsgDiv, messageId, versionIndex) {
+        const versions = messageResponses.get(messageId);
+        botMsgDiv.querySelector('.message-text').textContent = versions[versionIndex];
+        
+        const buttons = botMsgDiv.querySelectorAll('.version-btn');
+        buttons.forEach((btn, idx) => {
+            btn.classList.toggle('active', idx === versionIndex);
+        });
     }
 
     function updateSidebarHistory() {
         sidebarHistory.innerHTML = '';
-        chatSessions.forEach(session => {
+        chatSessions.slice().reverse().forEach(session => {
             const item = document.createElement('div');
             item.className = 'chat-history-item';
             if (session.id === currentChatId) {
@@ -424,20 +785,87 @@
     }
 
     function loadChatSession(chatId) {
-        // This would load the saved chat session
-        // For now, just highlight it
         currentChatId = chatId;
         updateSidebarHistory();
     }
 
-    function appendMessage(text, role) {
+    function enableEditMode(messageDiv, messageId) {
+        const textEl = messageDiv.querySelector('.message-text');
+        const originalText = textEl.textContent;
+        
+        messageDiv.classList.add('editing');
+        
+        const editTextarea = document.createElement('textarea');
+        editTextarea.className = 'edit-textarea';
+        editTextarea.value = originalText;
+        editTextarea.rows = Math.min(originalText.split('\n').length + 1, 6);
+        
+        const actionsDiv = document.createElement('div');
+        actionsDiv.className = 'edit-actions';
+        actionsDiv.innerHTML = `
+            <button class="btn-cancel">Cancel</button>
+            <button class="btn-save">Send</button>
+        `;
+        
+        textEl.innerHTML = '';
+        textEl.appendChild(editTextarea);
+        textEl.appendChild(actionsDiv);
+        
+        editTextarea.focus();
+        
+        editTextarea.addEventListener('input', () => {
+            editTextarea.style.height = 'auto';
+            editTextarea.style.height = editTextarea.scrollHeight + 'px';
+        });
+        
+        actionsDiv.querySelector('.btn-cancel').onclick = () => {
+            messageDiv.classList.remove('editing');
+            textEl.textContent = originalText;
+        };
+        
+        actionsDiv.querySelector('.btn-save').onclick = () => {
+            const newText = editTextarea.value.trim();
+            if (newText && newText !== originalText) {
+                messageDiv.classList.remove('editing');
+                
+                let nextEl = messageDiv.nextElementSibling;
+                while (nextEl) {
+                    const toRemove = nextEl;
+                    nextEl = nextEl.nextElementSibling;
+                    toRemove.remove();
+                }
+                
+                handleSubmission(newText, true, messageId);
+            }
+        };
+    }
+
+    function appendMessage(text, role, messageId) {
         const msg = document.createElement('div');
         msg.className = `message-output ${role}`;
+        msg.setAttribute('data-message-id', messageId);
         
-        const textNode = document.createTextNode(text);
-        msg.appendChild(textNode);
+        const textSpan = document.createElement('span');
+        textSpan.className = 'message-text';
+        textSpan.textContent = text;
+        msg.appendChild(textSpan);
         
-        // Add action buttons only for bot messages
+        if (role === 'user') {
+            const userActions = document.createElement('div');
+            userActions.className = 'user-message-actions';
+            userActions.innerHTML = `
+                <button class="msg-edit" title="Edit"><i class="fa-solid fa-pen"></i></button>
+                <button class="msg-copy-user" title="Copy"><i class="fa-solid fa-copy"></i></button>
+            `;
+            msg.appendChild(userActions);
+            
+            userActions.querySelector('.msg-edit').onclick = () => enableEditMode(msg, messageId);
+            userActions.querySelector('.msg-copy-user').onclick = () => {
+                navigator.clipboard.writeText(textSpan.textContent);
+                showNotification('Copied!');
+            };
+        }
+        
         if (role === 'bot') {
             const actions = document.createElement('div');
             actions.className = 'message-actions';
@@ -451,38 +879,113 @@
             `;
             msg.appendChild(actions);
             
-            // Attach event listeners
             actions.querySelector('.msg-copy').onclick = () => {
-                navigator.clipboard.writeText(msg.firstChild.textContent);
-                alert('Response copied!');
+                navigator.clipboard.writeText(textSpan.textContent);
+                showNotification('Response copied!');
             };
             
             actions.querySelector('.msg-pdf').onclick = () => {
-                const blob = new Blob([msg.firstChild.textContent], { type: 'text/plain' });
+                const blob = new Blob([textSpan.textContent], { type: 'text/plain' });
                 const url = URL.createObjectURL(blob);
                 const a = document.createElement('a');
                 a.href = url;
-                a.download = 'response.txt';
+                a.download = 'nova-response.txt';
                 a.click();
             };
             
             actions.querySelector('.msg-regen').onclick = () => {
-                const lastUserMsg = findLastUserMessage();
-                if (lastUserMsg) handleSubmission(lastUserMsg);
+                // Find the corresponding user message for this bot response
+                const botMsgId = msg.getAttribute('data-message-id');
+                const userMsgId = botMsgId.replace('bot-', '');
+                const userMsg = document.querySelector(`[data-message-id="${userMsgId}"]`);
+                
+                if (userMsg) {
+                    const userText = userMsg.querySelector('.message-text').textContent;
+                    
+                    // Remove this bot message and any subsequent messages
+                    let nextEl = msg.nextElementSibling;
+                    while (nextEl) {
+                        const toRemove = nextEl;
+                        nextEl = nextEl.nextElementSibling;
+                        toRemove.remove();
+                    }
+                    msg.remove();
+                    
+                    // Show typing indicator
+                    const newBotMsg = appendMessage('', 'bot', botMsgId);
+                    showTypingIndicator(newBotMsg);
+                    currentMessageId = parseInt(userMsgId);
+                    
+                    // Resend the message to get new response
+                    socket.emit('message', { message: userText });
+                    showNotification('Regenerating response...');
+                }
             };
             
             actions.querySelector('.msg-share').onclick = () => {
-                alert('Share functionality would generate a shareable link');
+                const content = textSpan.textContent;
+                const timestamp = new Date().toLocaleString();
+                
+                // Create formatted text that looks like a PDF export
+                const formattedText = `
+━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+           NOVA CHAT - AI Response
+━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+
+Generated: ${timestamp}
+
+${content}
+
+━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+           Powered by Nova Chat
+━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+                `.trim();
+                
+                navigator.clipboard.writeText(formattedText).then(() => {
+                    showNotification('Formatted response copied to clipboard!');
+                }).catch(() => {
+                    showNotification('Failed to copy to clipboard');
+                });
             };
             
             actions.querySelector('.msg-love').onclick = (e) => {
-                e.target.style.color = '#f87171';
-                alert('Feedback: Loved! ❤️');
+                const loveBtn = e.currentTarget;
+                const dislikeBtn = actions.querySelector('.msg-dislike');
+                
+                // Check if already liked
+                if (loveBtn.classList.contains('active')) {
+                    // Undo like
+                    loveBtn.classList.remove('active');
+                    loveBtn.style.color = '';
+                    showNotification('Feedback removed');
+                } else {
+                    // Like and remove dislike if active
+                    loveBtn.classList.add('active');
+                    loveBtn.style.color = 'var(--success)';
+                    dislikeBtn.classList.remove('active');
+                    dislikeBtn.style.color = '';
+                    showNotification('Feedback: Loved!');
+                }
             };
             
             actions.querySelector('.msg-dislike').onclick = (e) => {
-                e.target.style.color = '#f87171';
-                alert('Feedback: Needs improvement 👎');
+                const dislikeBtn = e.currentTarget;
+                const loveBtn = actions.querySelector('.msg-love');
+                
+                // Check if already disliked
+                if (dislikeBtn.classList.contains('active')) {
+                    // Undo dislike
+                    dislikeBtn.classList.remove('active');
+                    dislikeBtn.style.color = '';
+                    showNotification('Feedback removed');
+                } else {
+                    // Dislike and remove like if active
+                    dislikeBtn.classList.add('active');
+                    dislikeBtn.style.color = 'var(--error)';
+                    loveBtn.classList.remove('active');
+                    loveBtn.style.color = '';
+                    showNotification('Feedback: Needs improvement');
+                }
             };
         }
         
@@ -493,21 +996,31 @@
     
     function findLastUserMessage() {
         const messages = chatHistory.querySelectorAll('.message-output.user');
-        return messages.length > 0 ? messages[messages.length - 1].textContent : null;
+        return messages.length > 0 ? messages[messages.length - 1] : null;
     }
 
-    // 3. Fake API Call
-    function fakeLLMCall(prompt, signal) {
-        return new Promise((resolve, reject) => {
-            const timeout = setTimeout(() => {
-                resolve(`Nova Response: This is a simulated response to "${prompt}".`);
-            }, 1500);
-
-            signal.addEventListener('abort', () => {
-                clearTimeout(timeout);
-                reject(new DOMException('Aborted', 'AbortError'));
-            });
-        });
+    function showNotification(message) {
+        const notification = document.createElement('div');
+        notification.textContent = message;
+        notification.style.cssText = `
+            position: fixed;
+            bottom: 2rem;
+            right: 2rem;
+            background: var(--bg-tertiary);
+            color: var(--text-primary);
+            padding: 1rem 1.5rem;
+            border-radius: 10px;
+            border: 1px solid var(--border);
+            box-shadow: 0 4px 12px rgba(0, 0, 0, 0.3);
+            z-index: 1000;
+            animation: fadeIn 0.3s ease;
+        `;
+        document.body.appendChild(notification);
+        setTimeout(() => {
+            notification.style.opacity = '0';
+            notification.style.transition = 'opacity 0.3s';
+            setTimeout(() => notification.remove(), 300);
+        }, 2000);
     }
 </script>
 
