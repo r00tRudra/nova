@@ -6,6 +6,17 @@
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
     <title>nova</title>
     <script src="https://cdn.socket.io/4.5.4/socket.io.min.js"></script>
+    <!-- Markdown parser - marked.js (very fast & secure) -->
+    <script src="https://cdn.jsdelivr.net/npm/marked/marked.min.js"></script>
+
+    <!-- Code syntax highlighting - highlight.js -->
+    <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/highlight.js/11.9.0/styles/github-dark-dimmed.min.css"/>
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/highlight.js/11.9.0/highlight.min.js"></script>
+
+    <!-- Optional: Math rendering (uncomment if needed) -->
+    <!-- <link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/katex@0.16.10/dist/katex.min.css" /> -->
+    <!-- <script src="https://cdn.jsdelivr.net/npm/katex@0.16.10/dist/katex.min.js"></script> -->
+    <!-- <script src="https://cdn.jsdelivr.net/npm/katex@0.16.10/dist/contrib/auto-render.min.js"></script> -->
     <style>
         :root {
             --bg-primary: #0a0a0c;
@@ -230,10 +241,9 @@
         }
 
         /* User Message Actions */
-        .user-message-actions {
+        .user-message-actions, .message-actions {
             position: absolute;
             bottom: -2.75rem;
-            right: 0;
             display: flex;
             gap: 0.4rem;
             opacity: 0;
@@ -246,11 +256,14 @@
             box-shadow: 0 4px 12px rgba(0, 0, 0, 0.3);
         }
 
-        .message-output.user:hover .user-message-actions {
+        .user-message-actions { right: 0; }
+
+        .message-output.user:hover .user-message-actions,
+        .message-output.bot:hover .message-actions {
             opacity: 1;
         }
 
-        .user-message-actions button {
+        .user-message-actions button, .message-actions button {
             background: transparent;
             border: none;
             padding: 0.5rem 0.75rem;
@@ -264,13 +277,12 @@
             font-size: 0.9rem;
         }
 
-        .user-message-actions button:hover {
+        .user-message-actions button:hover, .message-actions button:hover {
             background: var(--btn-secondary-hover);
             color: var(--text-primary);
             transform: translateY(-2px);
         }
 
-        /* Edit Mode */
         .edit-textarea {
             width: 100%;
             background: transparent;
@@ -300,23 +312,10 @@
             transition: all 0.2s;
         }
 
-        .btn-save {
-            background: var(--btn-primary-bg);
-            color: white;
-        }
-
-        .btn-save:hover {
-            background: var(--btn-primary-hover);
-        }
-
-        .btn-cancel {
-            background: var(--btn-secondary-bg);
-            color: var(--text-secondary);
-        }
-
-        .btn-cancel:hover {
-            background: var(--btn-secondary-hover);
-        }
+        .btn-save { background: var(--btn-primary-bg); color: white; }
+        .btn-save:hover { background: var(--btn-primary-hover); }
+        .btn-cancel { background: var(--btn-secondary-bg); color: var(--text-secondary); }
+        .btn-cancel:hover { background: var(--btn-secondary-hover); }
 
         /* Response Versions */
         .response-versions {
@@ -349,43 +348,7 @@
             border-color: var(--btn-primary-bg);
         }
 
-        /* Bot Message Actions */
-        .message-actions {
-            position: absolute;
-            bottom: -2.75rem;
-            left: 0;
-            display: flex;
-            gap: 0.4rem;
-            opacity: 0;
-            transition: opacity 0.2s ease;
-            background: var(--bg-tertiary);
-            padding: 0.5rem;
-            border-radius: 10px;
-            border: 1px solid var(--border);
-            align-items: center;
-            box-shadow: 0 4px 12px rgba(0, 0, 0, 0.3);
-        }
-
-        .message-output.bot:hover .message-actions {
-            opacity: 1;
-        }
-
-        .message-actions button {
-            background: transparent;
-            border: none;
-            padding: 0.5rem 0.75rem;
-            border-radius: 6px;
-            cursor: pointer;
-            font-size: 0.9rem;
-            color: var(--text-secondary);
-            transition: all 0.2s;
-        }
-
-        .message-actions button:hover {
-            background: var(--btn-secondary-hover);
-            color: var(--text-primary);
-            transform: translateY(-2px);
-        }
+        .message-actions { left: 0; }
 
         /* Input Area */
         .input-container {
@@ -514,6 +477,102 @@
             background: var(--error);
             color: white;
         }
+        /* Better markdown rendering */
+.message-text {
+    line-height: 1.6;
+    word-break: break-word;
+}
+
+.message-text p { margin: 0.8em 0; }
+.message-text ul, .message-text ol { padding-left: 1.8em; margin: 0.8em 0; }
+.message-text li { margin: 0.4em 0; }
+.message-text blockquote {
+    border-left: 4px solid var(--border);
+    padding-left: 1rem;
+    margin: 1rem 0;
+    color: var(--text-secondary);
+}
+
+.message-text code {
+    background: #1e1e24;
+    padding: 0.2em 0.5em;
+    border-radius: 4px;
+    font-family: 'Consolas', 'Monaco', monospace;
+}
+
+.message-text pre {
+    background: #0d0d0f;
+    padding: 1rem;
+    border-radius: 10px;
+    overflow-x: auto;
+    position: relative;
+    margin: 1rem 0;
+}
+
+.message-text pre code {
+    background: none;
+    padding: 0;
+}
+
+.code-copy-btn {
+    position: absolute;
+    top: 0.8rem;
+    right: 0.8rem;
+    background: rgba(255,255,255,0.1);
+    border: none;
+    color: var(--text-secondary);
+    padding: 0.4rem 0.8rem;
+    border-radius: 6px;
+    cursor: pointer;
+    opacity: 0.7;
+    transition: all 0.2s;
+}
+
+.message-text pre:hover .code-copy-btn {
+    opacity: 1;
+}
+
+.code-copy-btn:hover {
+    background: rgba(255,255,255,0.2);
+    color: var(--text-primary);
+}
+
+/* Text Formatting Toolbar */
+.formatting-toolbar {
+    display: flex;
+    gap: 0.4rem;
+    margin-bottom: 0.75rem;
+    padding-bottom: 0.75rem;
+    border-bottom: 1px solid var(--border);
+    flex-wrap: wrap;
+}
+
+.formatting-btn {
+    background: var(--btn-secondary-bg);
+    border: 1px solid var(--border);
+    color: var(--text-secondary);
+    padding: 0.4rem 0.6rem;
+    border-radius: 6px;
+    cursor: pointer;
+    font-size: 0.8rem;
+    font-weight: 600;
+    transition: all 0.2s;
+    display: inline-flex;
+    align-items: center;
+    gap: 0.3rem;
+}
+
+.formatting-btn:hover {
+    background: var(--btn-secondary-hover);
+    color: var(--text-primary);
+    border-color: var(--btn-primary-bg);
+}
+
+.formatting-btn.active {
+    background: var(--btn-primary-bg);
+    color: white;
+    border-color: var(--btn-primary-bg);
+}
     </style>
 </head>
 <body>
@@ -635,6 +694,7 @@
         startNewChat();
     });
 
+
     function startNewChat() {
         chatHistory.innerHTML = '';
         currentChatId = null;
@@ -693,23 +753,20 @@
         
         if (botMsgDiv) {
             hideTypingIndicator(botMsgDiv);
-            botMsgDiv.querySelector('.message-text').textContent = data.content;
+            const textEl = botMsgDiv.querySelector('.message-text');
+            const content = data.content;
+            const hasCode = content.includes('```');
+            textEl.innerHTML = parseMarkdown(!hasCode && isLikelyCode(content) ? '```\n' + content + '\n```' : content);
+            highlightCodeBlocks(textEl);
             
-            // Store response version
             if (!messageResponses.has(currentMessageId)) {
                 messageResponses.set(currentMessageId, []);
             }
-            messageResponses.get(currentMessageId).push(data.content);
+            messageResponses.get(currentMessageId).push(content);
             
-            // Add version selector if multiple responses exist
             if (messageResponses.get(currentMessageId).length > 1) {
                 addVersionSelector(botMsgDiv, currentMessageId);
             }
-            
-            // Add model badge if provided
-            // if (data.model) {
-            //     addModelBadge(botMsgDiv, data.model);
-            // }
         }
     }
 
@@ -761,13 +818,12 @@
     }
 
     function switchVersion(botMsgDiv, messageId, versionIndex) {
-        const versions = messageResponses.get(messageId);
-        botMsgDiv.querySelector('.message-text').textContent = versions[versionIndex];
-        
-        const buttons = botMsgDiv.querySelectorAll('.version-btn');
-        buttons.forEach((btn, idx) => {
-            btn.classList.toggle('active', idx === versionIndex);
-        });
+        const txt = messageResponses.get(messageId)[versionIndex];
+        const textEl = botMsgDiv.querySelector('.message-text');
+        const hasCode = txt.includes('```');
+        textEl.innerHTML = parseMarkdown(!hasCode && isLikelyCode(txt) ? '```\n' + txt + '\n```' : txt);
+        highlightCodeBlocks(textEl);
+        botMsgDiv.querySelectorAll('.version-btn').forEach((b, i) => b.classList.toggle('active', i === versionIndex));
     }
 
     function updateSidebarHistory() {
@@ -840,187 +896,128 @@
         };
     }
 
+    const parseMarkdown = (txt) => marked.parse(txt, { breaks: true, gfm: true, headerIds: false, sanitize: false });
+    
+    function isLikelyCode(text) {
+        const lines = text.trim().split('\n');
+        if (lines.length < 2) return false;
+        const patterns = [/^\s*(function|const|let|var|class|import|export|def|if|for|while|return)/m, /^\s*(<!DOCTYPE|<html|<script|<div|\{|\[|\(|\/\/|\/\*|#|--)/m, /[\{\}\[\]\(\);:=<>]/g];
+        return patterns.reduce((c, p) => c + (text.match(p) ? 1 : 0), 0) >= 2;
+    }
+
+    function highlightCodeBlocks(el) {
+        el.querySelectorAll('pre code').forEach(block => {
+            hljs.highlightElement(block);
+            const btn = document.createElement('button');
+            btn.className = 'code-copy-btn';
+            btn.innerHTML = '<i class="fa-solid fa-copy"></i>';
+            btn.title = 'Copy code';
+            btn.onclick = () => {
+                navigator.clipboard.writeText(block.textContent);
+                btn.innerHTML = '<i class="fa-solid fa-check"></i>';
+                setTimeout(() => btn.innerHTML = '<i class="fa-solid fa-copy"></i>', 2000);
+            };
+            block.parentElement.style.position = 'relative';
+            block.parentElement.appendChild(btn);
+        });
+    }
+
     function appendMessage(text, role, messageId) {
         const msg = document.createElement('div');
         msg.className = `message-output ${role}`;
         msg.setAttribute('data-message-id', messageId);
-        
-        const textSpan = document.createElement('span');
-        textSpan.className = 'message-text';
-        textSpan.textContent = text;
-        msg.appendChild(textSpan);
-        
-        if (role === 'user') {
-            const userActions = document.createElement('div');
-            userActions.className = 'user-message-actions';
-            userActions.innerHTML = `
-                <button class="msg-edit" title="Edit"><i class="fa-solid fa-pen"></i></button>
-                <button class="msg-copy-user" title="Copy"><i class="fa-solid fa-copy"></i></button>
-            `;
-            msg.appendChild(userActions);
-            
-            userActions.querySelector('.msg-edit').onclick = () => enableEditMode(msg, messageId);
-            userActions.querySelector('.msg-copy-user').onclick = () => {
-                navigator.clipboard.writeText(textSpan.textContent);
-                showNotification('Copied!');
-            };
-        }
-        
+
+        const contentDiv = document.createElement('div');
+        contentDiv.className = 'message-text';
+        const hasCode = text.includes('```');
+        contentDiv.innerHTML = parseMarkdown(!hasCode && isLikelyCode(text) ? '```\n' + text + '\n```' : text);
+        msg.appendChild(contentDiv);
+
+        highlightCodeBlocks(contentDiv);
+
         if (role === 'bot') {
             const actions = document.createElement('div');
             actions.className = 'message-actions';
-            actions.innerHTML = `
-                <button class="msg-copy" title="Copy"><i class="fa-solid fa-copy"></i></button>
-                <button class="msg-pdf" title="Export PDF"><i class="fa-solid fa-file-pdf"></i></button>
-                <button class="msg-regen" title="Regenerate"><i class="fa-solid fa-arrows-rotate"></i></button>
-                <button class="msg-share" title="Share"><i class="fa-solid fa-share-nodes"></i></button>
-                <button class="msg-love" title="Love"><i class="fa-solid fa-thumbs-up"></i></button>
-                <button class="msg-dislike" title="Needs Improvement"><i class="fa-solid fa-thumbs-down"></i></button>
-            `;
+            actions.innerHTML = `<button title="Copy" onclick="copyMessageText(this.closest('.message-output'))"><i class="fa-solid fa-copy"></i></button>
+                <button title="Regenerate" onclick="regenerateResponse()"><i class="fa-solid fa-rotate-right"></i></button>
+                <button title="Good" onclick="rateResponse(this, true)"><i class="fa-solid fa-thumbs-up"></i></button>
+                <button title="Bad" onclick="rateResponse(this, false)"><i class="fa-solid fa-thumbs-down"></i></button>`;
             msg.appendChild(actions);
-            
-            actions.querySelector('.msg-copy').onclick = () => {
-                navigator.clipboard.writeText(textSpan.textContent);
-                showNotification('Response copied!');
-            };
-            
-            actions.querySelector('.msg-pdf').onclick = () => {
-                const blob = new Blob([textSpan.textContent], { type: 'text/plain' });
-                const url = URL.createObjectURL(blob);
-                const a = document.createElement('a');
-                a.href = url;
-                a.download = 'nova-response.txt';
-                a.click();
-            };
-            
-            actions.querySelector('.msg-regen').onclick = () => {
-                // Find the corresponding user message for this bot response
-                const botMsgId = msg.getAttribute('data-message-id');
-                const userMsgId = botMsgId.replace('bot-', '');
-                const userMsg = document.querySelector(`[data-message-id="${userMsgId}"]`);
-                
-                if (userMsg) {
-                    const userText = userMsg.querySelector('.message-text').textContent;
-                    
-                    // Remove this bot message and any subsequent messages
-                    let nextEl = msg.nextElementSibling;
-                    while (nextEl) {
-                        const toRemove = nextEl;
-                        nextEl = nextEl.nextElementSibling;
-                        toRemove.remove();
-                    }
-                    msg.remove();
-                    
-                    // Show typing indicator
-                    const newBotMsg = appendMessage('', 'bot', botMsgId);
-                    showTypingIndicator(newBotMsg);
-                    currentMessageId = parseInt(userMsgId);
-                    
-                    // Resend the message to get new response
-                    socket.emit('message', { message: userText });
-                    showNotification('Regenerating response...');
-                }
-            };
-            
-            actions.querySelector('.msg-share').onclick = () => {
-                const content = textSpan.textContent;
-                const timestamp = new Date().toLocaleString();
-                
-                // Create formatted text that looks like a PDF export
-                const formattedText = `
-━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
-           NOVA CHAT - AI Response
-━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
-
-Generated: ${timestamp}
-
-${content}
-
-━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
-           Powered by Nova Chat
-━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
-                `.trim();
-                
-                navigator.clipboard.writeText(formattedText).then(() => {
-                    showNotification('Formatted response copied to clipboard!');
-                }).catch(() => {
-                    showNotification('Failed to copy to clipboard');
-                });
-            };
-            
-            actions.querySelector('.msg-love').onclick = (e) => {
-                const loveBtn = e.currentTarget;
-                const dislikeBtn = actions.querySelector('.msg-dislike');
-                
-                // Check if already liked
-                if (loveBtn.classList.contains('active')) {
-                    // Undo like
-                    loveBtn.classList.remove('active');
-                    loveBtn.style.color = '';
-                    showNotification('Feedback removed');
-                } else {
-                    // Like and remove dislike if active
-                    loveBtn.classList.add('active');
-                    loveBtn.style.color = 'var(--success)';
-                    dislikeBtn.classList.remove('active');
-                    dislikeBtn.style.color = '';
-                    showNotification('Feedback: Loved!');
-                }
-            };
-            
-            actions.querySelector('.msg-dislike').onclick = (e) => {
-                const dislikeBtn = e.currentTarget;
-                const loveBtn = actions.querySelector('.msg-love');
-                
-                // Check if already disliked
-                if (dislikeBtn.classList.contains('active')) {
-                    // Undo dislike
-                    dislikeBtn.classList.remove('active');
-                    dislikeBtn.style.color = '';
-                    showNotification('Feedback removed');
-                } else {
-                    // Dislike and remove like if active
-                    dislikeBtn.classList.add('active');
-                    dislikeBtn.style.color = 'var(--error)';
-                    loveBtn.classList.remove('active');
-                    loveBtn.style.color = '';
-                    showNotification('Feedback: Needs improvement');
-                }
-            };
+        } else {
+            const actions = document.createElement('div');
+            actions.className = 'user-message-actions';
+            actions.innerHTML = `<button title="Edit" onclick="enableEditMode(this.closest('.message-output'), '${messageId}')"><i class="fa-solid fa-pen"></i></button>
+                <button title="Copy" onclick="copyMessageText(this.closest('.message-output'))"><i class="fa-solid fa-copy"></i></button>`;
+            msg.appendChild(actions);
         }
-        
+
         chatHistory.appendChild(msg);
         chatHistory.scrollTop = chatHistory.scrollHeight;
         return msg;
     }
     
-    function findLastUserMessage() {
-        const messages = chatHistory.querySelectorAll('.message-output.user');
-        return messages.length > 0 ? messages[messages.length - 1] : null;
+    function updateFormattingButtons(textEl) {
+        const existing = textEl.querySelector('.formatting-toolbar');
+        if (existing) existing.remove();
+        
+        const toolbar = document.createElement('div');
+        toolbar.className = 'formatting-toolbar';
+        const opts = [
+            { label: 'B', title: 'Bold', selector: 'strong, b' },
+            { label: 'I', title: 'Italic', selector: 'em, i' },
+            { label: 'Code', title: 'Code', selector: 'code' },
+            { label: 'Link', title: 'Links', selector: 'a' },
+            { label: 'List', title: 'Lists', selector: 'ul, ol' },
+            { label: 'Quote', title: 'Quotes', selector: 'blockquote' },
+            { label: 'H', title: 'Headings', selector: 'h1, h2, h3, h4, h5, h6' }
+        ];
+
+        opts.forEach(o => {
+            const btn = document.createElement('button');
+            btn.className = 'formatting-btn' + (textEl.querySelector(o.selector) ? ' active' : '');
+            btn.title = o.title;
+            btn.textContent = o.label;
+            btn.onclick = (e) => { e.preventDefault(); showNotification(`📝 Response contains ${o.title.toLowerCase()}`); };
+            toolbar.appendChild(btn);
+        });
+        textEl.insertBefore(toolbar, textEl.firstChild);
     }
 
-    function showNotification(message) {
-        const notification = document.createElement('div');
-        notification.textContent = message;
-        notification.style.cssText = `
-            position: fixed;
-            bottom: 2rem;
-            right: 2rem;
-            background: var(--bg-tertiary);
-            color: var(--text-primary);
-            padding: 1rem 1.5rem;
-            border-radius: 10px;
-            border: 1px solid var(--border);
-            box-shadow: 0 4px 12px rgba(0, 0, 0, 0.3);
-            z-index: 1000;
-            animation: fadeIn 0.3s ease;
-        `;
-        document.body.appendChild(notification);
-        setTimeout(() => {
-            notification.style.opacity = '0';
-            notification.style.transition = 'opacity 0.3s';
-            setTimeout(() => notification.remove(), 300);
-        }, 2000);
+    function findLastUserMessage() {
+        const msgs = chatHistory.querySelectorAll('.message-output.user');
+        return msgs.length > 0 ? msgs[msgs.length - 1] : null;
+    }
+
+    function showNotification(msg) {
+        const note = document.createElement('div');
+        note.textContent = msg;
+        note.style.cssText = 'position:fixed;bottom:2rem;right:2rem;background:var(--bg-tertiary);color:var(--text-primary);padding:1rem 1.5rem;border-radius:10px;border:1px solid var(--border);box-shadow:0 4px 12px rgba(0,0,0,.3);z-index:1000;animation:fadeIn .3s ease';
+        document.body.appendChild(note);
+        setTimeout(() => { note.style.opacity = '0'; note.style.transition = 'opacity .3s'; setTimeout(() => note.remove(), 300); }, 2000);
+    }
+    
+    function copyMessageText(div) {
+        const txt = div.querySelector('.message-text').textContent;
+        navigator.clipboard.writeText(txt).then(() => showNotification('Message copied!'));
+    }
+    
+    function regenerateResponse() {
+        const lastMsg = findLastUserMessage();
+        if (lastMsg) {
+            let n = lastMsg.nextElementSibling;
+            while (n) { const x = n; n = n.nextElementSibling; x.remove(); }
+            handleSubmission(lastMsg.querySelector('.message-text').textContent, false, lastMsg.getAttribute('data-message-id'));
+        }
+    }
+    
+    function rateResponse(btn, isPos) {
+        const ico = btn.querySelector('i');
+        const act = btn.closest('.message-actions');
+        act.querySelectorAll('.fa-thumbs-up, .fa-thumbs-down').forEach(i => i.style.color = '');
+        if (ico.style.color !== 'var(--btn-primary-bg)') {
+            ico.style.color = 'var(--btn-primary-bg)';
+            showNotification(isPos ? 'Thanks for your feedback!' : 'Feedback noted');
+        }
     }
 </script>
 
