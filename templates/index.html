@@ -454,6 +454,66 @@
             }
         }
 
+        /* Model Badge Popup */
+        .model-badge {
+            position: absolute;
+            top: 0.75rem;
+            right: 0.75rem;
+            background: linear-gradient(135deg, rgba(124, 58, 237, 0.9), rgba(109, 40, 217, 0.9));
+            color: white;
+            padding: 0.35rem 0.75rem;
+            border-radius: 8px;
+            font-size: 0.7rem;
+            font-weight: 700;
+            letter-spacing: 0.5px;
+            text-transform: uppercase;
+            box-shadow: 0 4px 12px rgba(124, 58, 237, 0.4);
+            cursor: pointer;
+            transition: all 0.3s ease;
+            z-index: 10;
+            animation: modelBadgeAppear 0.5s cubic-bezier(0.68, -0.55, 0.265, 1.55);
+        }
+
+        .model-badge:hover {
+            transform: scale(1.1) translateY(-2px);
+            box-shadow: 0 6px 16px rgba(124, 58, 237, 0.6);
+        }
+
+        @keyframes modelBadgeAppear {
+            0% {
+                opacity: 0;
+                transform: scale(0.5) translateY(-10px);
+            }
+            100% {
+                opacity: 1;
+                transform: scale(1) translateY(0);
+            }
+        }
+
+        /* Model Tooltip */
+        .model-tooltip {
+            position: absolute;
+            top: -3rem;
+            right: 0;
+            background: var(--bg-primary);
+            color: var(--text-primary);
+            padding: 0.5rem 0.75rem;
+            border-radius: 8px;
+            font-size: 0.75rem;
+            font-weight: 500;
+            white-space: nowrap;
+            box-shadow: 0 4px 12px rgba(0, 0, 0, 0.5);
+            border: 1px solid var(--border-light);
+            opacity: 0;
+            pointer-events: none;
+            transition: opacity 0.3s ease;
+            z-index: 20;
+        }
+
+        .model-badge:hover .model-tooltip {
+            opacity: 1;
+        }
+
         /* Connection Status */
         .connection-status {
             position: fixed;
@@ -982,6 +1042,11 @@
             textEl.innerHTML = parseMarkdown(!hasCode && isLikelyCode(content) ? '```\n' + content + '\n```' : content);
             highlightCodeBlocks(textEl);
             
+            // Display model badge if model information is available
+            if (data.model) {
+                addModelBadge(botMsgDiv, data.model);
+            }
+            
             if (!messageResponses.has(currentMessageId)) {
                 messageResponses.set(currentMessageId, []);
             }
@@ -1004,19 +1069,38 @@
     }
 
     function addModelBadge(botMsgDiv, modelKey) {
+        // Remove any existing badge first
+        const existingBadge = botMsgDiv.querySelector('.model-badge');
+        if (existingBadge) {
+            existingBadge.remove();
+        }
+        
+        // Model display names mapping
+        const modelNames = {
+            'model_xl': 'XL',
+            'model_l': 'Large',
+            'model_m': 'Medium',
+            'model_s': 'Small'
+        };
+        
+        // Model descriptions for tooltip
+        const modelDescriptions = {
+            'model_xl': 'Safety Analysis Model',
+            'model_l': 'Complex Reasoning Model',
+            'model_m': 'Cybersecurity Model',
+            'model_s': 'Fast Chat Model'
+        };
+        
         const badge = document.createElement('div');
-        badge.style.cssText = `
-            position: absolute;
-            top: 0.5rem;
-            right: 0.5rem;
-            background: rgba(124, 58, 237, 0.2);
-            color: var(--accent);
-            padding: 0.25rem 0.5rem;
-            border-radius: 6px;
-            font-size: 0.75rem;
-            font-weight: 600;
-        `;
-        badge.textContent = modelKey.toUpperCase();
+        badge.className = 'model-badge';
+        badge.textContent = modelNames[modelKey] || modelKey.toUpperCase();
+        
+        // Add tooltip
+        const tooltip = document.createElement('div');
+        tooltip.className = 'model-tooltip';
+        tooltip.textContent = modelDescriptions[modelKey] || 'AI Model';
+        badge.appendChild(tooltip);
+        
         botMsgDiv.appendChild(badge);
     }
 
