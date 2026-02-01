@@ -1078,9 +1078,9 @@
         // Model display names mapping
         const modelNames = {
             'model_xl': 'XL',
-            'model_l': 'Large',
-            'model_m': 'Medium',
-            'model_s': 'Small'
+            'model_l': 'L',
+            'model_m': 'M',
+            'model_s': 'S'
         };
         
         // Model descriptions for tooltip
@@ -1093,7 +1093,9 @@
         
         const badge = document.createElement('div');
         badge.className = 'model-badge';
-        badge.textContent = modelNames[modelKey] || modelKey.toUpperCase();
+        // Extract model suffix (e.g., 'model_xl' -> 'xl') for unknown models
+        const fallbackName = modelKey.replace('model_', '').toUpperCase();
+        badge.textContent = modelNames[modelKey] || fallbackName;
         
         // Add tooltip
         const tooltip = document.createElement('div');
