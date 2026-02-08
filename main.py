@@ -1,4 +1,3 @@
-# main.py
 """
 Nova Chat - Multi-LLM Intelligent Routing Chatbot
 Main application entry point using Flask + SocketIO + Groq + Semantic Routing
@@ -6,7 +5,10 @@ Main application entry point using Flask + SocketIO + Groq + Semantic Routing
 
 import os
 import sys
+import json
+import re
 from datetime import datetime
+from typing import Dict, Any, Optional
 
 from flask import Flask, render_template, request
 from flask_socketio import SocketIO, emit
@@ -25,24 +27,18 @@ from collections import defaultdict, deque
 # ────────────────────────────────────────────────
 load_dotenv()
 
-# Basic validation
 if not os.getenv("GROQ_API_KEY"):
     print("ERROR: GROQ_API_KEY is required!")
     sys.exit(1)
 
 # ────────────────────────────────────────────────
-# 2. Create Flask application instance
+# 2. Flask app setup
 # ────────────────────────────────────────────────
 app = Flask(__name__)
-
-# Configuration
 
 app.config["SQLALCHEMY_DATABASE_URI"] = "sqlite:///nova.db"
 app.config["SQLALCHEMY_TRACK_MODIFICATIONS"] = False
 app.config['SECRET_KEY'] = os.getenv('SECRET_KEY', 'super-secret-key-change-me-please')
-
-# app.config['SQLALCHEMY_DATABASE_URI'] = os.getenv('DATABASE_URL')  # ← Neon/PostgreSQL connection string
-# app.config['SQLALCHEMY_TRACK_MODIFICATIONS'] = False
 
 app.config['SQLALCHEMY_ENGINE_OPTIONS'] = {
     "pool_size": 5,
@@ -51,10 +47,10 @@ app.config['SQLALCHEMY_ENGINE_OPTIONS'] = {
 }
 
 # ────────────────────────────────────────────────
-# 3. Initialize extensions (order matters!)
+# 3. Initialize extensions
 # ────────────────────────────────────────────────
 db = SQLAlchemy(app)
-migrate = Migrate(app, db)          # This registers 'flask db' commands
+migrate = Migrate(app, db)
 socketio = SocketIO(
     app,
     cors_allowed_origins="*",
@@ -66,18 +62,14 @@ socketio = SocketIO(
 client = Groq(api_key=os.getenv("GROQ_API_KEY"))
 
 # ────────────────────────────────────────────────
-# 4. Import models AFTER db initialization
-# ────────────────────────────────────────────────
-# from models import ChatMessage, User  # ← import here when you create models.py
-
-# ────────────────────────────────────────────────
-# 5. LLM Models & Semantic Routing
+# 4. LLM Models & Semantic Routing
 # ────────────────────────────────────────────────
 MODELS = {
-    "model_xl": "openai/gpt-oss-safeguard-20b",  # ← placeholder, change when real
+    "model_xl": "openai/gpt-oss-safeguard-20b",           # placeholder
     "model_l": "meta-llama/llama-4-maverick-17b-128e-instruct",
     "model_m": "meta-llama/llama-guard-4-12b",
-    "model_s": "groq/compound-mini",             # fast & cheap fallback
+    "model_s": "groq/compound-mini",
+    "model_quiz": "groq/compound-mini",                   # fast model for quizzes
 }
 
 ROUTES = {
@@ -95,91 +87,297 @@ ROUTE_EMBEDDINGS = {
 }
 
 def route_prompt(prompt: str, threshold: float = 0.45) -> str:
-    """Choose best model using semantic similarity"""
     prompt_emb = router_model.encode(prompt, normalize_embeddings=True)
     scores = {k: cosine_similarity([prompt_emb], [v])[0][0] for k, v in ROUTE_EMBEDDINGS.items()}
     best_model, best_score = max(scores.items(), key=lambda x: x[1])
     return best_model if best_score >= threshold else "model_s"
 
 # ────────────────────────────────────────────────
-# 6. LLM Call Helper
+# 5. LLM Helpers
 # ────────────────────────────────────────────────
-def call_llm(model_key: str, prompt: str) -> str:
+def call_llm(model_key: str, messages: list[dict]) -> str:
     try:
         response = client.chat.completions.create(
             model=MODELS[model_key],
-            messages=[
-                {"role": "system", "content": "You are a helpful assistant."},
-                {"role": "user", "content": prompt}
-            ],
+            messages=messages,
             temperature=0.7,
             max_tokens=2048,
         )
         return response.choices[0].message.content.strip()
     except Exception as e:
+        print(f"LLM call failed: {e}")
         return f"Error: {str(e)}"
 
 # ────────────────────────────────────────────────
-# 7. Routes
+# 6. Global state
+# ────────────────────────────────────────────────
+chat_histories = defaultdict(lambda: deque(maxlen=12))   # ~6 turns
+quiz_states: Dict[str, Dict[str, Any]] = {}              # sid → quiz state
+
+# ────────────────────────────────────────────────
+# 7. Quiz helpers — MCQ ONLY
+# ────────────────────────────────────────────────
+def is_quiz_trigger(message: str) -> bool:
+    msg_lower = message.lower().strip()
+    return any(word in msg_lower for word in ["quiz me", "start quiz", "give me a quiz", "quiz on", "quiz about"])
+
+def extract_quiz_topic(message: str) -> Optional[str]:
+    msg = message.strip()
+    patterns = [
+        r"(?i)quiz\s*me\s*(?:on|about)\s+(.+?)(?:\s*$|\?)",
+        r"(?i)start\s+quiz\s*(?:on|about)\s+(.+?)(?:\s*$|\?)",
+        r"(?i)give\s+me\s+a\s+quiz\s*(?:on|about)\s+(.+?)(?:\s*$|\?)",
+        r"(?i)quiz\s+(?:on|about)\s+(.+?)(?:\s*$|\?)",
+    ]
+    for pattern in patterns:
+        match = re.search(pattern, msg)
+        if match:
+            topic = match.group(1).strip().rstrip(".")
+            return topic if topic else None
+    return None
+
+def build_quiz_prompt(topic: str) -> str:
+    return (
+        "You are an expert quiz generator. Create an engaging educational quiz.\n"
+        "**Only generate multiple-choice questions (MCQ). No short-answer or open-ended questions.**\n\n"
+        f"Topic: {topic}\n\n"
+        "Generate 6–10 multiple-choice questions.\n"
+        "Return **only valid JSON** with this exact structure:\n"
+        "{\n"
+        '  "topic": "string",\n'
+        '  "questions": [\n'
+        '    {\n'
+        '      "type": "mcq",\n'
+        '      "question": "string",\n'
+        '      "options": ["A) option one", "B) option two", "C) option three", "D) option four"],\n'
+        '      "answer": "A) option one",   // must match one of the options exactly\n'
+        '      "explanation": "string"\n'
+        "    }\n"
+        "  ]\n"
+        "}\n\n"
+        "Rules:\n"
+        "- Every question MUST have exactly 4 options.\n"
+        "- Options must start with A), B), C), D)\n"
+        "- The 'answer' field must be the full correct option string (e.g. 'C) Paris is the capital of France')\n"
+        "- Make questions clear, accurate and educational\n"
+        "- Return ONLY the JSON — no extra text, no markdown, no explanation outside JSON"
+    )
+
+def parse_quiz_response(raw: str) -> Optional[dict]:
+    try:
+        # Clean common markdown/code fences
+        cleaned = re.sub(r'^```json\s*|\s*```$', '', raw.strip())
+        cleaned = re.sub(r'^`+|`+$', '', cleaned.strip())
+        data = json.loads(cleaned)
+        if "questions" in data and isinstance(data["questions"], list):
+            # Basic validation
+            for q in data["questions"]:
+                if not all(k in q for k in ["question", "options", "answer", "explanation"]):
+                    return None
+                if len(q["options"]) != 4:
+                    return None
+                if q["answer"] not in q["options"]:
+                    return None
+            return data
+    except Exception:
+        pass
+    return None
+
+def format_question(q: dict, index: int, total: int) -> str:
+    lines = [f"**Question {index}/{total}**", q["question"]]
+    for opt in q.get("options", []):
+        lines.append(opt)
+    return "\n".join(lines)
+
+def normalize_answer(user_input: str) -> str:
+    """Convert user answer like 'a', 'A', 'A)', 'a)' → full option text if possible"""
+    ans = user_input.strip().lower()
+    if ans in ('a', 'b', 'c', 'd'):
+        return ans.upper() + ')'
+    if len(ans) == 1 and ans in 'abcd':
+        return ans.upper() + ')'
+    # fallback: return as is
+    return user_input.strip()
+
+# ────────────────────────────────────────────────
+# 8. Flask Routes
 # ────────────────────────────────────────────────
 @app.route('/')
 def index():
     return render_template('index.html')
 
+@app.route('/quiz')
+def quiz():
+    return render_template('quiz.html')
+
 # ────────────────────────────────────────────────
-# 8. SocketIO Event Handlers
+# 9. SocketIO Handlers
 # ────────────────────────────────────────────────
 @socketio.on('connect')
-def handle_connect():
-    print(f"Client connected → SID: {request.sid}")
+def on_connect():
+    sid = request.sid
+    print(f"[CONNECT] {sid}")
     emit('chat_message', {
         'role': 'system',
-        'content': 'Welcome to Nova Chat • Ready when you are!'
+        'content': 'Connected! You can start chatting or request a quiz (all questions will be MCQ).'
     })
 
 @socketio.on('message')
-def handle_message(data):
-    user_message = data.get('message', '').strip()
-    if not user_message:
+def on_message(data):
+    sid = request.sid
+    user_msg = data.get('message', '').strip()
+    if not user_msg:
         return
 
-    # Broadcast user message
+    print(f"[MSG] {sid} → {user_msg[:80]}{'...' if len(user_msg)>80 else ''}")
+
+    # Echo user message
     emit('chat_message', {
         'role': 'user',
-        'content': user_message,
+        'content': user_msg,
         'timestamp': datetime.utcnow().isoformat()
-    }, broadcast=True)
+    })
 
-    # Route to best model
-    model_key = route_prompt(user_message)
+    # ──────────────────────────────
+    # Handle quiz answer (MCQ only)
+    # ──────────────────────────────
+    if sid in quiz_states and quiz_states[sid].get('awaiting_answer'):
+        state = quiz_states[sid]
+        q = state['questions'][state['current']]
 
-    emit('typing', {'status': True}, broadcast=True)
+        user_answer = normalize_answer(user_msg)
+        correct_answer = q['answer']
+
+        # Try to match by letter prefix if user gave 'A' or 'a'
+        correct_letter = correct_answer[0].upper() if correct_answer and len(correct_answer) > 1 else None
+        user_letter = user_answer[0].upper() if user_answer and len(user_answer) > 1 else None
+
+        is_correct = (
+            user_answer == correct_answer or
+            (user_letter and correct_letter and user_letter == correct_letter)
+        )
+
+        state['score'] += 1 if is_correct else 0
+
+        feedback = " **Correct!**" if is_correct else f" **Incorrect** — Correct answer: {correct_answer}"
+        feedback += f"\n\n**Explanation:** {q.get('explanation', 'No explanation provided.')}"
+        emit('chat_message', {'role': 'assistant', 'content': feedback})
+
+        state['current'] += 1
+
+        if state['current'] >= len(state['questions']):
+            summary = (
+                f"**Quiz finished!**\n"
+                f"Topic: {state['topic']}\n"
+                f"Score: **{state['score']} / {len(state['questions'])}**"
+            )
+            emit('chat_message', {'role': 'assistant', 'content': summary})
+            del quiz_states[sid]
+        else:
+            next_q = format_question(state['questions'][state['current']], state['current']+1, len(state['questions']))
+            emit('chat_message', {'role': 'assistant', 'content': next_q})
+            state['awaiting_answer'] = True
+
+        return
+
+    # ──────────────────────────────
+    # New quiz request
+    # ──────────────────────────────
+    if is_quiz_trigger(user_msg):
+        topic = extract_quiz_topic(user_msg)
+
+        if not topic:
+            emit('chat_message', {
+                'role': 'assistant',
+                'content': "Sure! What topic would you like the MCQ quiz on?\n(Just reply with the subject)"
+            })
+            quiz_states[sid] = {"awaiting_topic": True}
+            return
+
+        emit('chat_message', {'role': 'assistant', 'content': f"Preparing MCQ quiz on **{topic}** …"})
+        emit('typing', {'status': True})
+
+        try:
+            prompt = build_quiz_prompt(topic)
+            raw_response = call_llm("model_quiz", [
+                {"role": "system", "content": "You are a strict JSON-only quiz generator. Return only valid JSON."},
+                {"role": "user", "content": prompt}
+            ])
+
+            quiz_data = parse_quiz_response(raw_response)
+            if not quiz_data or not quiz_data.get('questions'):
+                raise ValueError("Could not generate valid MCQ quiz")
+
+            questions = quiz_data['questions']
+            if len(questions) < 5:
+                raise ValueError("Too few questions generated")
+
+            quiz_states[sid] = {
+                "topic": topic,
+                "questions": questions,
+                "current": 0,
+                "score": 0,
+                "awaiting_answer": True
+            }
+
+            intro = f"**MCQ Quiz on {topic}**\n{len(questions)} questions. Choose A, B, C or D."
+            emit('chat_message', {'role': 'assistant', 'content': intro})
+
+            first_q = format_question(questions[0], 1, len(questions))
+            emit('chat_message', {'role': 'assistant', 'content': first_q})
+
+        except Exception as e:
+            error_msg = f"Sorry, I couldn't create the MCQ quiz right now.\n({str(e)})"
+            emit('chat_message', {'role': 'assistant', 'content': error_msg})
+            quiz_states.pop(sid, None)
+
+        finally:
+            emit('typing', {'status': False})
+        return
+
+    # ──────────────────────────────
+    # Normal chat
+    # ──────────────────────────────
+    model_key = route_prompt(user_msg)
+
+    emit('typing', {'status': True})
 
     try:
-        answer = call_llm(model_key, user_message)
+        messages = [
+            {"role": "system", "content": "You are a helpful, concise assistant."},
+        ]
+        for msg in list(chat_histories[sid])[-8:]:
+            messages.append({"role": msg['role'], "content": msg['content']})
+        messages.append({"role": "user", "content": user_msg})
+
+        answer = call_llm(model_key, messages)
+
+        chat_histories[sid].append({"role": "user", "content": user_msg})
+        chat_histories[sid].append({"role": "assistant", "content": answer})
+
         emit('chat_message', {
             'role': 'assistant',
             'content': answer,
-            'timestamp': datetime.utcnow().isoformat(),
-            'model': model_key  # optional
-        }, broadcast=True)
+            'model': model_key
+        })
+
     except Exception as e:
-        emit('chat_message', {
-            'role': 'assistant',
-            'content': f"Error: {str(e)}"
-        }, broadcast=True)
+        emit('chat_message', {'role': 'assistant', 'content': f"Error: {str(e)}"})
+
     finally:
-        emit('typing', {'status': False}, broadcast=True)
+        emit('typing', {'status': False})
+
+@socketio.on('disconnect')
+def on_disconnect():
+    print(f"[DISCONNECT] {request.sid}")
 
 # ────────────────────────────────────────────────
-# 9. Run the application
+# Run
 # ────────────────────────────────────────────────
 if __name__ == '__main__':
-    print("=" * 70)
-    print("   Nova Chat - Multi-LLM Routing Chatbot")
-    print("   Open → http://127.0.0.1:5000")
-    print("=" * 70)
-    
+    print("═" * 60)
+    print(" Nova Chat   |   http://127.0.0.1:5000")
+    print("═" * 60)
     socketio.run(
         app,
         debug=True,
@@ -187,129 +385,3 @@ if __name__ == '__main__':
         port=int(os.getenv('PORT', 5000)),
         allow_unsafe_werkzeug=True
     )
-
-
-# ────────────────────────────────────────────────
-# Global in-memory storage: sid → deque of messages (limited size)
-# Each message: {"role": "user"|"assistant", "content": str, "timestamp": str}
-# ────────────────────────────────────────────────
-chat_histories = defaultdict(lambda: deque(maxlen=10))  # max 10 messages → ~5 turns
-
-
-def get_history_for_llm(sid: str) -> list[dict]:
-    """Returns last N messages in OpenAI-compatible format"""
-    return [{"role": msg["role"], "content": msg["content"]} for msg in chat_histories[sid]]
-
-
-def add_to_history(sid: str, role: str, content: str):
-    """Add message and keep only the newest ones"""
-    chat_histories[sid].append({
-        "role": role,
-        "content": content,
-        "timestamp": datetime.utcnow().isoformat()
-    })
-
-
-# ────────────────────────────────────────────────
-# Optional: cleanup very old sessions (every 100 connections, for example)
-# You can also run this in a background thread if desired
-# ────────────────────────────────────────────────
-def cleanup_old_histories():
-    to_remove = []
-    for sid, hist in list(chat_histories.items()):
-        if len(hist) == 0 or (datetime.utcnow() - datetime.fromisoformat(hist[-1]["timestamp"])).total_seconds() > 3600*24:  # > 24h
-            to_remove.append(sid)
-    for sid in to_remove:
-        del chat_histories[sid]
-
-
-# ────────────────────────────────────────────────
-# Modified SocketIO handlers
-# ────────────────────────────────────────────────
-@socketio.on('connect')
-def handle_connect():
-    print(f"Client connected → SID: {request.sid}")
-    # Optional: send welcome + previous messages if any (usually empty on first connect)
-    history = get_history_for_llm(request.sid)
-    if history:
-        for msg in history[-4:]:  # last few only, avoid flooding
-            emit('chat_message', {
-                'role': msg['role'],
-                'content': msg['content'],
-                'timestamp': "past"
-            })
-    emit('chat_message', {
-        'role': 'system',
-        'content': 'Welcome to Nova Chat • Ready when you are!'
-    })
-
-
-@socketio.on('message')
-def handle_message(data):
-    user_message = data.get('message', '').strip()
-    if not user_message:
-        return
-
-    sid = request.sid
-
-    # 1. Add user message to history & broadcast
-    add_to_history(sid, "user", user_message)
-    emit('chat_message', {
-        'role': 'user',
-        'content': user_message,
-        'timestamp': datetime.utcnow().isoformat()
-    }, broadcast=True)   # ← still broadcast (public feel), or remove if private chat
-
-    # 2. Route → select model
-    model_key = route_prompt(user_message)
-
-    emit('typing', {'status': True}, broadcast=True)
-
-    try:
-        # 3. Prepare full context: system + history + current user message
-        messages = [
-            {"role": "system", "content": "You are a helpful assistant."},
-        ]
-        messages.extend(get_history_for_llm(sid))           # ← this is the key change!
-        messages.append({"role": "user", "content": user_message})
-
-        # 4. Call LLM with full context
-        response = client.chat.completions.create(
-            model=MODELS[model_key],
-            messages=messages,   # ← now includes history
-            temperature=0.7,
-            max_tokens=2048,
-        )
-        answer = response.choices[0].message.content.strip()
-
-        # 5. Save assistant reply
-        add_to_history(sid, "assistant", answer)
-
-        # 6. Send to client
-        emit('chat_message', {
-            'role': 'assistant',
-            'content': answer,
-            'timestamp': datetime.utcnow().isoformat(),
-            'model': model_key
-        }, broadcast=True)
-
-    except Exception as e:
-        emit('chat_message', {
-            'role': 'assistant',
-            'content': f"Error: {str(e)}"
-        }, broadcast=True)
-
-    finally:
-        emit('typing', {'status': False}, broadcast=True)
-
-    # Optional: clean up very old sessions every now and then
-    if len(chat_histories) % 100 == 0:
-        cleanup_old_histories()
-
-
-# Optional: disconnect handler (clean up if you want strict cleanup)
-@socketio.on('disconnect')
-def handle_disconnect():
-    print(f"Client disconnected → SID: {request.sid}")
-    # You can remove history here if you want sessions to be forgotten on disconnect
-    # del chat_histories[request.sid]   # ← uncomment if desired
