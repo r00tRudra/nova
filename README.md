@@ -1,16 +1,27 @@
-# nova Chat - Multi-LLM Router Chatbot
+# Nova Chat — Multi-LLM Intelligent Learning Chatbot
 
-A beautiful, minimalistic web-based chatbot that intelligently routes user prompts to different Groq models based on the type of question.
+Nova is a modern AI-powered EdTech platform that intelligently routes user questions across multiple large language models and reinforces learning through a built-in interactive quiz system.
+
+Students can chat with AI for explanations and immediately test their understanding using topic-wise quizzes — combining AI assistance with active learning.
+
 
 ## Features
 
 - Smart Model Routing — automatically chooses the best model based on prompt content  
-- Supports 4 different Grok models with specialized roles
-- Modern dark-themed chat UI with auto-growing input
-- Real-time responses via WebSocket (Socket.IO)
-- Hover toolbars, copy/edit/regenerate/love/dislike buttons (frontend ready)
-- Generation time display
-- Scroll-to-bottom button
+- Supports multiple Groq-powered LLMs with specialized roles  
+- Modern dark-themed real-time chat UI  
+- WebSocket streaming responses (Socket.IO)  
+
+### Authentication
+- Google OAuth 2.0 signup/login (no passwords required)  
+- Secure session-based user authentication  
+- Protected chat and quiz pages  
+
+### Learning Tools
+- AI-powered topic-wise quizzes  
+- MCQ style questions with instant feedback  
+- Reinforces learning after chat sessions  
+
 
 ## Currently Supported Models & Routing Logic
 
@@ -30,6 +41,11 @@ Routing uses sentence-transformers + cosine similarity (very lightweight)
 - Embedding/Routing: sentence-transformers + scikit-learn
 - Frontend: Pure HTML/CSS + JavaScript + Socket.IO
 - Environment: python-dotenv
+- Authlib (OAuth for Google login)
+- Backend: Flask + Flask-SocketIO
+- Database: SQLAlchemy + Flask-Migrate
+- Authentication: Google OAuth 2.0 (Authlib)
+
 
 ## Quick Start
 
@@ -46,7 +62,11 @@ pip install -r requirements.txt
 
 3. Create .env file and add your key
 ```bash
-GROQ_API_KEY=gq_xxxxxxxxxxxxxxxxxxxxxxxxxxxxxx
+
+GROQ_API_KEY=your_groq_api_key  
+GOOGLE_CLIENT_ID=your_google_client_id  
+GOOGLE_CLIENT_SECRET=your_google_client_secret  
+SECRET_KEY=your_flask_secret_key
 ```
 
 4. Run the app
@@ -61,5 +81,9 @@ python main.py
 
 - Basic routing + chat working
 - Nice dark UI with hover controls
-- Missing: real user authentication, chat history persistence, rate limiting
+- Secure Google OAuth authentication implemented  
+- Special quiz learning section added  
+- Chat system fully functional  
+- Chat history persistence & analytics planned
+- Missing: History storing in DataBase
 

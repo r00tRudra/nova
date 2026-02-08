@@ -13,3 +13,4 @@ flask-migrate
 sqlalchemy[asyncio]
 asyncpg
 psycopg[binary,pool]
+Authlib>=1.3.0

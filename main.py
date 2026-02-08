@@ -10,11 +10,17 @@ import re
 from datetime import datetime
 from typing import Dict, Any, Optional
 
-from flask import Flask, render_template, request
+
+
+from flask import Flask, render_template, request, redirect, url_for, session
+
 from flask_socketio import SocketIO, emit
 from flask_sqlalchemy import SQLAlchemy
 from flask_migrate import Migrate
 from dotenv import load_dotenv
+
+from authlib.integrations.flask_client import OAuth
+
 
 from sentence_transformers import SentenceTransformer
 from sklearn.metrics.pairwise import cosine_similarity
@@ -35,6 +41,20 @@ if not os.getenv("GROQ_API_KEY"):
 # 2. Flask app setup
 # ────────────────────────────────────────────────
 app = Flask(__name__)
+
+
+oauth = OAuth(app)
+
+google = oauth.register(
+    name="google",
+    client_id=os.getenv("GOOGLE_CLIENT_ID"),
+    client_secret=os.getenv("GOOGLE_CLIENT_SECRET"),
+    server_metadata_url="https://accounts.google.com/.well-known/openid-configuration",
+    client_kwargs={"scope": "openid email profile"}
+)
+
+
+
 
 app.config["SQLALCHEMY_DATABASE_URI"] = "sqlite:///nova.db"
 app.config["SQLALCHEMY_TRACK_MODIFICATIONS"] = False
@@ -199,16 +219,53 @@ def normalize_answer(user_input: str) -> str:
     # fallback: return as is
     return user_input.strip()
 
+
 # ────────────────────────────────────────────────
 # 8. Flask Routes
 # ────────────────────────────────────────────────
+
+@app.route('/login')
+def login():
+    return render_template('login.html')
+
+
+@app.route('/auth/google')
+def google_login():
+    return google.authorize_redirect(url_for('google_callback', _external=True))
+
+
+@app.route('/auth/google/callback')
+def google_callback():
+    token = google.authorize_access_token()
+    user = token['userinfo']
+
+    session['user'] = {
+        "email": user['email'],
+        "name": user['name'],
+        "picture": user['picture']
+    }
+
+    return redirect('/')
+
 @app.route('/')
 def index():
+    if 'user' not in session:
+        return redirect('/login')
     return render_template('index.html')
+
 
 @app.route('/quiz')
 def quiz():
+    if 'user' not in session:
+        return redirect('/login')
     return render_template('quiz.html')
+
+@app.route('/logout')
+def logout():
+    session.clear()
+    return redirect('/login')
+
+
 
 # ────────────────────────────────────────────────
 # 9. SocketIO Handlers

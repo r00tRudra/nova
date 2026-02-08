@@ -881,9 +881,24 @@
 </div>
 
 <div class="sidebar">
-    <div class="sidebar-header">
+    <div class="sidebar-header" style="flex-direction:column; gap:.6rem;">
         <div class="logo">nova</div>
+
+        <a href="/logout" style="
+            color:#b0b0b8;
+            font-size:.85rem;
+            text-decoration:none;
+            border:1px solid #1e1e24;
+            padding:.35rem .8rem;
+            border-radius:8px;
+            transition:.2s;
+        "
+        onmouseover="this.style.color='#fff'"
+        onmouseout="this.style.color='#b0b0b8'">
+            Logout
+        </a>
     </div>
+
 
     <button class="new-chat-btn" id="new-chat-btn">
         <i class="fa-solid fa-plus"></i>
