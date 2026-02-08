@@ -104,6 +104,32 @@
             box-shadow: 0 6px 16px rgba(124, 58, 237, 0.4);
         }
 
+        .quiz-page-btn {
+            margin-top: 0.75rem;
+            background: var(--btn-secondary-bg);
+            color: var(--text-primary);
+            border: 1px solid var(--border);
+            padding: 0.75rem 1.25rem;
+            border-radius: 10px;
+            cursor: pointer;
+            font-size: 0.9rem;
+            font-weight: 600;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            gap: 0.6rem;
+            width: 100%;
+            transition: transform 0.2s, box-shadow 0.2s, background 0.2s;
+            text-decoration: none;
+        }
+
+        .quiz-page-btn:hover {
+            transform: translateY(-2px);
+            background: var(--btn-secondary-hover);
+            box-shadow: 0 6px 16px rgba(0, 0, 0, 0.3);
+        }
+
+
         .chat-history-list {
             flex: 1;
             overflow-y: auto;
@@ -863,6 +889,10 @@
         <i class="fa-solid fa-plus"></i>
         New Chat
     </button>
+    <a class="quiz-page-btn" href="/quiz">
+        <i class="fa-solid fa-graduation-cap"></i>
+        Topic Quizzes
+    </a>
     <div class="chat-history-list" id="sidebar-history">
         <!-- Chat history items will be added here -->
     </div>
