@@ -54,6 +54,8 @@ git clone https://github.com/yourusername/nova-chat.git
 cd nova-chat
 ```
 
+
+
 2. Install dependencies
 ```bash
 pip install -r requirements.txt
