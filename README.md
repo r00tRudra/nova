@@ -23,6 +23,8 @@ Students can chat with AI for explanations and immediately test their understand
 - Reinforces learning after chat sessions  
 
 
+
+
 ## Currently Supported Models & Routing Logic
 
 | Key     | Model ID                                      | Purpose / Specialty                              |
